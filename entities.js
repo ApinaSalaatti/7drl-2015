@@ -70,8 +70,21 @@ Game.EntityFactory.defineTemplate(
 	{
 		name: 'Drunk',
 		character: '@',
-		foreground: 'brown',
+		foreground: 'blue',
+		sightRadius: 15,
 		components: [Game.Components.Hands, Game.Components.Sight, Game.Components.DrunkActor, Game.Components.Human]
+	},
+	{ isRandomlySpawnable: true }
+);
+
+Game.EntityFactory.defineTemplate(
+	'guard',
+	{
+		name: 'Guard',
+		character: '@',
+		foreground: 'red',
+		sightRadius: 30,
+		components: [Game.Components.Hands, Game.Components.Sight, Game.Components.GuardActor, Game.Components.Human]
 	},
 	{ isRandomlySpawnable: true }
 );

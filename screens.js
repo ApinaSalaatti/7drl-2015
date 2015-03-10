@@ -83,17 +83,8 @@ Game.Screens.playScreen = {
 		this._player.setPosition(pos.x, pos.y);
 		this._map.addEntity(this._player);
 		
-		for(var i = 0; i < 10; i++) {
-			var e = Game.EntityFactory.create('drunk');
-			var pos = this._map.getRandomFloorPosition();
-			e.setPosition(pos.x, pos.y);
-			this._map.addEntity(e);
-		}
-		for(var i = 0; i < 40; i++) {
-			var it = Game.ItemFactory.createRandom();
-			var pos = this._map.getRandomFloorPosition();
-			this._map.getTile(pos.x, pos.y).addItem(it);
-		}
+		var populator = new MapPopulator();
+		populator.populate(this._map);
 		
 		Game.turnNumber = 0;
 		this._map.getEngine().start();

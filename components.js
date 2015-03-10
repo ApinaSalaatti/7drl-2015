@@ -8,6 +8,29 @@ Game.Components.Sight = {
 	},
 	getSightRadius: function() {
 		return this._sightRadius;
+	},
+	setSightRadius: function(rad) {
+		this._sightRadius = rad;
+	},
+	canSee: function(entity) {
+		// If not within a square fow, we can't see them (doing this to avoid possibly expensive calculations)
+		if((entity.getX() - this.getX()) * (entity.getX() - this.getX()) + (entity.getY() - this.getY()) * (entity.getY() - this.getY()) > this.getSightRadius() * this.getSightRadius()) {
+			return false;
+		}
+		
+		// Calculate the visibility from where we're standing, and if we see the square of the entity, we can see the entity!
+		var eX = entity.getX();
+		var eY = entity.getY();
+		var seen = false;
+		this.getMap().getFov().compute(
+			this.getX(), this.getY(), this.getSightRadius(),
+			function(x, y, radius, visibility) {
+				if(x == eX && y == eY) {
+					seen = true;
+				}
+			}
+		);
+		return seen;
 	}
 }
 
@@ -78,10 +101,146 @@ Game.Components.PlayerActor = {
 Game.Components.DrunkActor = {
 	name: 'DrunkActor',
 	groupName: 'Actor',
+	init: function(properties) {
+		
+	},
+	setOwnedDrink: function(d) {
+		this._ownedDrink = d;
+	},
 	act: function() {
-		var dirs = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
-		dirs = dirs.randomize();
-		this.tryMove(this.getX()+dirs[0].x, this.getY()+dirs[0].y);
+		if(!this._chasedEntity) {
+			var dirs = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
+			dirs = dirs.randomize();
+			this.tryMove(this.getX()+dirs[0].x, this.getY()+dirs[0].y);
+		}
+		else {
+			// CHASE THAT FUCKER
+			var me = this;
+			var chased = this._chasedEntity;
+			var map = this.getMap();
+			var path = new ROT.Path.AStar(chased.getX(), chased.getY(),
+				function(x, y) {
+					var e = map.getEntityAt(x, y);
+					if(e && e != chased && e != me) return false; // If there's an entity at the coordinates, it is blocked
+					else return map.getTile(x, y).isWalkable();
+				},
+				{ topology: 8}
+			);
+			
+			// Now calculate the points on the path. The SECOND is the square we want to move to (the first is our current position)
+			var count = 0;
+			path.compute(me.getX(), me.getY(), function(x, y) {
+				if(count == 1) {
+					me.tryMove(x, y);
+				}
+				count++;
+			});
+		}
+	},
+	eventListeners: {
+		itemPickedUp: function(data) {
+			if(!this._ownedDrink)
+				return;
+				
+			var i = data.item;
+			if(i == this._ownedDrink && this.canSee(data.picker)) {
+				this._chasedEntity = data.picker;
+			}
+		}
+	}
+}
+
+Game.Components.GuardActor = {
+	name: 'GuardActor',
+	groupName: 'Actor',
+	init: function(properties) {
+		this._state = 'guard';
+	},
+	act: function() {
+		if(this._state == 'chase') {
+			this.updateChase();
+		}
+		else if(this._state == 'guard') {
+			this.updateGuard();
+		}
+	},
+	updateChase: function() {
+		if(!this._chasedEntity || !this.canSee(this._chasedEntity)) {
+			this.changeState('guard');
+			return;
+		}
+		
+		var me = this;
+		var chased = this._chasedEntity;
+		var map = this.getMap();
+		var path = new ROT.Path.AStar(chased.getX(), chased.getY(),
+			function(x, y) {
+				var e = map.getEntityAt(x, y);
+				if(e && e != chased && e != me) return false; // If there's an entity at the coordinates, it is blocked
+				else return map.getTile(x, y).isWalkable();
+			},
+			{ topology: 8}
+		);
+		
+		// Now calculate the points on the path. The SECOND is the square we want to move to (the first is our current position)
+		var count = 0;
+		path.compute(me.getX(), me.getY(), function(x, y) {
+			if(count == 1) {
+				me.tryMove(x, y);
+			}
+			count++;
+		});
+	},
+	updateGuard: function() {
+		if(!this._originalSpot)
+			return;
+		if(this.getX() == this._originalSpot.x && this.getY() == this._originalSpot.y)
+			return;
+		
+		var me = this;
+		var target = this._originalSpot;
+		var map = this.getMap();
+		var path = new ROT.Path.AStar(target.x, target.y,
+			function(x, y) {
+				var e = map.getEntityAt(x, y);
+				if(e && e != me) return false; // If there's an entity at the coordinates, it is blocked
+				else return map.getTile(x, y).isWalkable();
+			},
+			{ topology: 8}
+		);
+		
+		// Now calculate the points on the path. The SECOND is the square we want to move to (the first is our current position)
+		var count = 0;
+		path.compute(me.getX(), me.getY(), function(x, y) {
+			if(count == 1) {
+				me.tryMove(x, y);
+			}
+			count++;
+		});
+	},
+	changeState: function(state) {
+		if(state == 'guard') {
+			
+		}
+		else if(state == 'chase') {
+			if(!this._originalSpot) {
+				this._originalSpot = { x: this.getX(), y: this.getY() }; // Save the spot we are standing at so we can return to it after the chase
+			}
+		}
+		else {
+			throw new Error("Invalid state given for Guard Actor!");
+		}
+		this._state = state;
+	},
+	eventListeners: {
+		somethingPeedOn: function(data) {
+			var p = data.peeingPerson;
+			if(this.canSee(p)) {
+				this._chasedEntity = p;
+				this.changeState('chase');
+				Game.addMessage("A guard looks angry");
+			}
+		}
 	}
 }
 
@@ -115,6 +274,7 @@ Game.Components.VitalStats = {
 		if(!this._nauseaMessageSent && this._drunk >= this._maxDrunk-50) {
 			Game.addMessage(this.getName() + " feels nauseous");
 			this._nauseaMessageSent = true;
+			this.setSightRadius(5);
 		}
 	},
 	funChange: function(amount) {
@@ -150,7 +310,7 @@ Game.Components.Human = {
 			this._possessive = 'hir';
 		}
 	},
-	getPossessive: function() {
+	getGenderPossessive: function() {
 		return this._possessive;
 	},
 	getGender: function() {

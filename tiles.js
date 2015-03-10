@@ -90,9 +90,7 @@ Game.Tile.prototype.getItems = function() {
 
 Game.Tiles = {};
 Game.Tiles.nullTile = new Game.Tile({ canHavePeeOnIt: false }); // null tile so we can use an awesome null object pattern
-//Game.Tiles.FloorTileTemplate = { name: "floor", character: '.', walkable: true, blocksLight: false };
-//Game.Tiles.WallTileTemplate = { name: "wall", character: '#', blocksLight: true, canHavePeeOnIt: false };
 
 Game.TileFactory = new Game.Factory('tiles', Game.Tile);
-Game.TileFactory.defineTemplate('floor', { name: "floor", character: '.', walkable: true, blocksLight: false });
-Game.TileFactory.defineTemplate('wall', { name: "wall", character: '#', blocksLight: true, canHavePeeOnIt: false });
+Game.TileFactory.defineTemplate('floor', { name: "floor", character: '.', foreground: 'grey', walkable: true, blocksLight: false });
+Game.TileFactory.defineTemplate('wall', { name: "wall", character: '#', foreground: 'lightGrey', background: 'lightGrey', blocksLight: true, canHavePeeOnIt: false });
