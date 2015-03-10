@@ -1,23 +1,3 @@
-Game.MapBuilder = function() {
-
-}
-
-Game.MapBuilder.prototype.create = function() {
-	var t = [[]];
-	for(var y = 0; y < 100; y++) {
-		t[y] = [];
-		for(var x = 0; x < 100; x++) {
-			var tile = ROT.RNG.getUniform() < 0.2 ? Game.TileFactory.create('wall') : Game.TileFactory.create('floor');
-			tile.setPosition(x, y);
-			t[y][x] = tile;
-		}
-	}
-	
-	this._map = new Game.Map(t);
-	
-	return this._map;
-}
-
 RoomID = 0;
 Room = function(x, y, w, h) {
 	this.x = x;
