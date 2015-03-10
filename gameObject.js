@@ -7,6 +7,8 @@ Game.GameObject = function(id, properties) {
 	this._attachedComponents = {};
 	this._attachedComponentGroups = {};
 	
+	this._eventListeners = {};
+	
 	var c = properties['components'] || [];
 	for(var i = 0; i < c.length; i++) {
 		for(var key in c[i]) {
@@ -19,6 +21,15 @@ Game.GameObject = function(id, properties) {
 		if(c[i].groupName) {
 			this._attachedComponentGroups[c[i].groupName] = true;
 		}
+		
+		if(c[i].eventListeners) {
+			for(var key in c[i].eventListeners) {
+				if(!this._eventListeners[key]) {
+					this._eventListeners[key] = [];
+				}
+				this._eventListeners[key].push(c[i].eventListeners[key]);
+			}
+		}
 	}
 	// Init the components (do it in a separate loop so if components refer to each other, their order won't matter)
 	for(var i = 0; i < c.length; i++) {
@@ -28,6 +39,16 @@ Game.GameObject = function(id, properties) {
 	}
 }
 Game.GameObject.extend(Game.Glyph);
+
+Game.GameObject.prototype.raiseEvent = function(event, data) {
+	if(!this._eventListeners[event]) {
+		return;
+	}
+	
+	for(var i = 0; i < this._eventListeners[event].length; i++) {
+		this._eventListeners[event][i].apply(this, [data]);
+	}
+}
 
 Game.GameObject.prototype.hasComponent = function(component) {
 	if(typeof component === 'object') {
@@ -47,4 +68,19 @@ Game.GameObject.prototype.getName = function() {
 }
 Game.GameObject.prototype.setName = function(n) {
 	this._name = n;
+}
+
+Game.GameObject.prototype.describe = function() {
+	return this._name;
+}
+
+Game.GameObject.prototype.describeA = function(capitalize) {
+	var pres = capitalize ? ['A', 'An'] : ['a', 'an'];
+	var pre = 'aeiou'.indexOf(this.describe().charAt(0)) > -1 ? pres[1] : pres[0];
+	return pre + ' ' + this.describe();
+}
+
+Game.GameObject.prototype.describeThe = function(capitalize) {
+	var pre = capitalize ? 'The' : 'the';
+	return pre + ' ' + this.describe();
 }

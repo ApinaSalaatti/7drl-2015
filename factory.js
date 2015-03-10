@@ -31,3 +31,7 @@ Game.Factory.prototype.create = function(templateName, additionalProperties) {
 	
 	return new this._ctor(Game.Factory.latestObjectID++, template);
 }
+
+Game.Factory.prototype.createRandom = function() {
+	return this.create(Object.keys(this._randomPool).random());
+}

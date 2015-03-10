@@ -26,12 +26,18 @@ Game.Entity.prototype.setPosition = function(x, y) {
 }
 
 Game.Entity.prototype.tryMove = function(x, y) {
-	if(!this.getMap().getTile(x, y).isWalkable()) {
+	var tile = this.getMap().getTile(x, y);
+	if(!tile.isWalkable()) {
+		if(tile.hasComponent('Interactable')) {
+			tile.interact(this);
+		}
 		return false;
 	}
 	var e = this.getMap().getEntityAt(x, y);
 	if(e) {
-		// TODO Do stuff like attack here
+		if(e.hasComponent('Interactable')) {
+			e.interact(this);
+		}
 		return false;
 	}
 	
@@ -47,9 +53,14 @@ Game.EntityFactory = new Game.Factory('entity', Game.Entity);
 Game.EntityFactory.defineTemplate(
 	'player',
 	{
+		name: 'Player',
 		character: '@',
 		foreground: 'green',
-		components: [Game.Components.Peeing]
+		sightRadius: 20,
+		components: [
+			Game.Components.Peeing, Game.Components.Hands, Game.Components.Sight, Game.Components.PlayerActor, Game.Components.Wallet, Game.Components.Human,
+			Game.Components.VitalStats
+		]
 	},
 	{}
 );
@@ -57,8 +68,10 @@ Game.EntityFactory.defineTemplate(
 Game.EntityFactory.defineTemplate(
 	'drunk',
 	{
+		name: 'Drunk',
 		character: '@',
-		foreground: 'brown'
+		foreground: 'brown',
+		components: [Game.Components.Hands, Game.Components.Sight, Game.Components.DrunkActor, Game.Components.Human]
 	},
 	{ isRandomlySpawnable: true }
 );

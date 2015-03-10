@@ -1,6 +1,6 @@
-Game.Tile = function(properties) {
+Game.Tile = function(id, properties) {
 	properties = properties || {};
-	Game.Glyph.call(this, properties);
+	Game.GameObject.call(this, id, properties);
 	this._walkable = properties['walkable'] || false;
 	this._blocksLight = properties['blocksLight'] != 'undefined' ? properties['blocksLight'] : true;
 	this._canHavePeeOnIt = properties['canHavePeeOnIt'] != undefined ? properties['canHavePeeOnIt'] : true; // BY DEFAULT EVERY TILE CAN HAVE PEE ON THEM!!
@@ -8,8 +8,9 @@ Game.Tile = function(properties) {
 	this._map = null;
 	this._x = 0;
 	this._y = 0;
+	this._name = properties['name'] || 'tile';
 }
-Game.Tile.extend(Game.Glyph);
+Game.Tile.extend(Game.GameObject);
 
 Game.Tile.prototype.getX = function() {
 	return this._x;
@@ -22,7 +23,29 @@ Game.Tile.prototype.setPosition = function(x, y) {
 	this._y = y;
 }
 
+Game.Tile.prototype.getName = function() {
+	return this._name;
+}
+
+Game.Tile.prototype.describeThe = function(capitalize) {
+	var pre = capitalize ? 'The' : 'the';
+	return pre + ' ' + this.getName();
+}
+
+// Returns as string the name of the object that got peed on (for messaging purposes)
 Game.Tile.prototype.getPeedOn = function() {
+	var message = this.describeThe();
+	
+	if(this._items.length > 0) {
+		message = this._items[this._items.length-1].describeThe();
+		for(var i = 0; i < this._items.length; i++) {
+			message = this._items[i].describeThe();
+			if(this._items[i].getPeedOn()) {
+				return message; // If an item soaks all the pee then we're done!
+			}
+		}
+	}
+	
 	if(this.hasPeeOnIt()) {
 		var dirs = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
 		dirs = dirs.randomize();
@@ -32,9 +55,7 @@ Game.Tile.prototype.getPeedOn = function() {
 		Game.Glyph.prototype.getPeedOn.call(this);
 	}
 	
-	for(var i = 0; i < this._items.length; i++) {
-		this._items[i].getPeedOn();
-	}
+	return message;
 }
 
 Game.Tile.prototype.setMap = function(map) {
@@ -68,6 +89,10 @@ Game.Tile.prototype.getItems = function() {
 }
 
 Game.Tiles = {};
-Game.Tiles.nullTile = new Game.Tile({ canHavePeeOnIt: false });
-Game.Tiles.FloorTileTemplate = { name: "floor", character: '.', walkable: true, blocksLight: false };
-Game.Tiles.WallTileTemplate = { name: "wall", character: '#', blocksLight: true, canHavePeeOnIt: false };
+Game.Tiles.nullTile = new Game.Tile({ canHavePeeOnIt: false }); // null tile so we can use an awesome null object pattern
+//Game.Tiles.FloorTileTemplate = { name: "floor", character: '.', walkable: true, blocksLight: false };
+//Game.Tiles.WallTileTemplate = { name: "wall", character: '#', blocksLight: true, canHavePeeOnIt: false };
+
+Game.TileFactory = new Game.Factory('tiles', Game.Tile);
+Game.TileFactory.defineTemplate('floor', { name: "floor", character: '.', walkable: true, blocksLight: false });
+Game.TileFactory.defineTemplate('wall', { name: "wall", character: '#', blocksLight: true, canHavePeeOnIt: false });

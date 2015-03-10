@@ -1,14 +1,18 @@
 var Game = {
 	_display: null,
-	_screenWidth: 100,
+	_screenWidth: 120,
 	_screenHeight: 26,
 	_currentScreen: null,
 	_messages: [],
 	init: function() {
-		this._display = new ROT.Display({ width: this._screenWidth, height: this._screenHeight, fg: 'black', bg: 'white' });
+		this._display = new ROT.Display({ width: this._screenWidth, height: this._screenHeight, fg: 'white', bg: 'black' });
 		var game = this;
 		window.addEventListener('keydown', function(e) {
+			if(e.keyCode == 8) e.preventDefault();
 			game._sendInputToScreen('keydown', e);
+		});
+		window.addEventListener('keypress', function(e) {
+			game._sendInputToScreen('keypress', e);
 		});
 	},
 	
@@ -31,6 +35,26 @@ var Game = {
 		this.refresh();
 	},
 	
+	addMessage: function(m) {
+		var turn = '[' + Game.turnNumber + '] ';
+		this._messages.push(turn + m);
+		if(this._messages.length > 50) {
+			this._messages.splice(0, 1);
+		}
+	},
+	getLatestMessages: function(amount) {
+		if(amount >= this._messages.length) {
+			return this._messages;
+		}
+		var m = [];
+		var start = this._messages.length-amount;
+		var end = this._messages.length;
+		for(var i = start; i < end; i++) {
+			m.push(this._messages[i]);
+		}
+		return m;
+	},
+	
 	refresh: function() {
 		this._display.clear();
 		this._currentScreen.render(this._display);
@@ -40,15 +64,14 @@ var Game = {
 		if(this._currentScreen != null) {
 			this._currentScreen.handleInput(eventName, eventData);
 		}
-		Game.refresh();
 	}
 }
 
 Game.Glyph = function(properties) {
 	properties = properties || {};
 	this._char = properties['character'] || '?';
-	this._foreground = properties['foreground'] || 'black';
-	this._background = properties['background'] || 'white';
+	this._foreground = properties['foreground'] || 'white';
+	this._background = properties['background'] || 'black';
 	this._hasPeeOnIt = properties['hasPeeOnIt'] || false;
 }
 
@@ -74,8 +97,8 @@ Game.Glyph.prototype.setBackground = function(bg) {
 	this._background = bg;
 }
 
+// EVERYTING CAN BE PEED ON
 Game.Glyph.prototype.getPeedOn = function() {
-	console.log("glyph peed on");
 	this._hasPeeOnIt = true;
 }
 Game.Glyph.prototype.getCleaned = function() {
