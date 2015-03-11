@@ -54,7 +54,7 @@ Game.Screens.startScreen = {
 	render: function(display) {
 		display.drawText(1, 1, "Type in your name: " + Game.playerName);
 		for(var i = 0; i < this._selections.length; i++) {
-			var bg = 'black';
+			var bg = '';
 			if(this._currentSelection == i) bg = 'lightGrey';
 			display.drawText(1, 3+i, '%b{'+bg+'}' + this._selections[i].title);
 		}
@@ -79,28 +79,36 @@ Game.Screens.playScreen = {
 		var builder = new MapBuilder();
 		this._map = builder.buildClub();
 		
-		var pos = this._map.getRandomFloorPosition();
-		this._player.setPosition(pos.x, pos.y);
-		this._map.addEntity(this._player);
-		
 		var populator = new MapPopulator();
-		populator.populate(this._map);
+		populator.populate(this._map, this._player);
 		
 		Game.turnNumber = 0;
 		this._map.getEngine().start();
+		
+		Game.clearMessages();
+		Game.addMessage("You really, really gotta go");
 	},
 	exit: function() {
-		this._map.getEngine().stop();
+	
 	},
 	handleInput: function(eventName, eventData) {
 		if(this._subscreen) {
 			this._subscreen.handleInput(eventName, eventData);
+			Game.refresh();
+			return;
+		}
+		
+		if(this._player.isDead()) {
+			if(eventData.keyCode == ROT.VK_RETURN) {
+				Game.switchScreen(Game.Screens.startScreen);
+			}
+			
 			return;
 		}
 		
 		if(eventName == 'keydown') {
 			var endTurn = true;
-			if(eventData.keyCode == ROT.VK_UP || eventData.keyCode == ROT.VK_L) {
+			if(eventData.keyCode == ROT.VK_UP || eventData.keyCode == ROT.VK_J) {
 				this._player.tryMove(this._player.getX(), this._player.getY()-1);
 			}
 			else if(eventData.keyCode == ROT.VK_DOWN || eventData.keyCode == ROT.VK_K) {
@@ -109,7 +117,7 @@ Game.Screens.playScreen = {
 			else if(eventData.keyCode == ROT.VK_LEFT || eventData.keyCode == ROT.VK_H) {
 				this._player.tryMove(this._player.getX()-1, this._player.getY());
 			}
-			else if(eventData.keyCode == ROT.VK_RIGHT || eventData.keyCode == ROT.VK_J) {
+			else if(eventData.keyCode == ROT.VK_RIGHT || eventData.keyCode == ROT.VK_L) {
 				this._player.tryMove(this._player.getX()+1, this._player.getY());
 			}
 			else if(eventData.keyCode == ROT.VK_Y) {
@@ -170,7 +178,9 @@ Game.Screens.playScreen = {
 	},
 	
 	setSubscreen: function(screen) {
+		if(this._subscreen != null) this._subscreen.exit();
 		this._subscreen = screen;
+		if(screen != null) screen.enter();
 	},
 	
 	render: function(display) {
@@ -178,6 +188,11 @@ Game.Screens.playScreen = {
 			this._subscreen.render(display);
 		}
 		else {
+			var r = Math.floor((0.5 + Math.sin(Game.turnNumber / 10) / 2) * 255);
+			var g = 255 - Math.floor((0.5 + Math.sin(Game.turnNumber / 10) / 2) * 255);
+			var b = 50;
+			display.setOptions({bg: ROT.Color.toRGB([r,g,b])});
+			document.body.style.background = ROT.Color.toRGB([r,g,b]);
 			this._renderWorld(display);
 			this._renderUI(display);
 		}
@@ -207,8 +222,9 @@ Game.Screens.playScreen = {
 							fg = glyph.getForeground();
 						}
 					}
-					
-					display.draw(1+x-topLeftX, 1+y-topLeftY, glyph.getCharacter(), fg, glyph.getBackground());
+					var bg = '';
+					if(glyph.getBackground() != 'black') bg = glyph.getBackground();
+					display.draw(1+x-topLeftX, 1+y-topLeftY, glyph.getCharacter(), fg, bg);
 				}
 			}
 		}
@@ -219,7 +235,9 @@ Game.Screens.playScreen = {
 			if(e.getX() >= topLeftX && e.getX() < topLeftX+sw && e.getY() >= topLeftY && e.getY() < topLeftY+sh) {
 				// Check for visibility and draw if visible
 				if(visibleCells[e.getX() + ',' + e.getY()]) {
-					display.draw(1+e.getX()-topLeftX, 1+e.getY()-topLeftY, e.getCharacter(), e.getForeground(), e.getBackground());
+					var bg = '';
+					if(e.getBackground() != 'black') bg = e.getBackground();
+					display.draw(1+e.getX()-topLeftX, 1+e.getY()-topLeftY, e.getCharacter(), e.getForeground(), bg);
 				}
 			}
 		}
@@ -253,14 +271,60 @@ Game.Screens.playScreen = {
 		display.drawText(uiTextX, 14, "Need to pee: " + this._player.needToPee());
 		display.drawText(uiTextX, 15, "The party is " + this._player.funStatus());
 		
+		var statuses = this._player.getStatusMessages();
+		for(var i = 0; i < statuses.length; i++) {
+			display.drawText(uiTextX, 16+i, statuses[i]);
+		}
+		
 		var tile = this._map.getTile(this._player.getX(), this._player.getY());
-		display.drawText(uiTextX, 17, "Standing on " + tile.describeA());
+		display.drawText(uiTextX, 21, "Standing on " + tile.describeA());
 		if(tile.getItems().length > 0) {
-			display.drawText(uiTextX, 18, "Items:");
-			y = 19;
+			display.drawText(uiTextX, 22, "Items:");
+			y = 23;
 			for(var i = 0; i < tile.getItems().length; i++) {
 				y += display.drawText(uiTextX, y, ' - ' + tile.getItems()[i].describeA());
 			}
 		}
 	}
 };
+
+Game.Screens.dialogScreen = {
+	_selected: 0,
+	_selections: null,
+	setup: function(properties) {
+		this._image = properties['image'] || [];
+		this._message = properties['message'] || "Make a selection:";
+		this._selections = properties['selections'] || [];
+	},
+	enter: function() {
+	
+	},
+	exit: function() {
+	
+	},
+	handleInput: function(eventName, eventData) {
+		if(eventName == 'keydown') {
+			if(eventData.keyCode == ROT.VK_DOWN) {
+				this._selected++;
+				if(this._selected >= this._selections.length) this._selected = 0;
+			}
+			else if(eventData.keyCode == ROT.VK_UP) {
+				this._selected--;
+				if(this._selected < 0) this._selected = this._selections.length-1;
+			}
+			else if(eventData.keyCode == ROT.VK_RETURN) {
+				this._selections[this._selected].select();
+			}
+		}
+	},
+	render: function(display) {
+		Game.DrawingUtilities.drawImage(0, 0, display, this._image);
+		
+		display.drawText(1, Game.getScreenHeight() - 6, this._message);
+		for(var i = 0; i < this._selections.length; i++) {
+			var bg = '';
+			if(i == this._selected) bg = '%b{lightGrey}'
+			display.drawText(1, Game.getScreenHeight() - 5 + i, bg + this._selections[i].title);
+		}
+	}
+}

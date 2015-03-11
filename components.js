@@ -72,6 +72,12 @@ Game.Components.Hands = {
 		
 		return false;
 	},
+	removeItemFromHand: function(item) {
+		if(this._itemOnLeftHand == item)
+			this._itemOnLeftHand = null;
+		else if(this._itemOnRightHand == item)
+			this._itemOnRightHand = null;
+	},
 	dropItem: function(hand) {
 		if(hand == 'left') {
 			var i = this._itemOnLeftHand;
@@ -86,6 +92,50 @@ Game.Components.Hands = {
 	}
 }
 
+Game.Components.Attacker = {
+	name: 'Attacker',
+	init: function(properties) {
+		this._hitChance = properties['hitChance'] || 0.5;
+		this._attackMessage = properties['attackMessage'] || 'attacks';
+		this._attackPower = properties['attackPower'] || 1;
+		this._aggressive = properties['aggressive'] != 'undefined' ? properties['aggressive'] : false;
+	},
+	attack: function(target) {
+		var m = this.getName() + " " + this._attackMessage + " " + target.getName();
+		var it = null;
+		if(this.getItemInHand('right') && this.getItemInHand('right').hasComponent('Weapon'))
+			it = this.getItemInHand('right');
+		else if(this.getItemInHand('left') && this.getItemInHand('left').hasComponent('Weapon'))
+			it = this.getItemInHand('left');
+		
+		if(it) m += " with " + it.describeA();
+		
+		if(ROT.RNG.getUniform() < this._hitChance) {
+			Game.addMessage(m);
+			this.raiseEvent('onAttack', { target: target });
+			var bonus = 0;
+			if(it) {
+				bonus = it.getAttackPower();
+				if(it.breaksOnAttack()) {
+					Game.addMessage(it.describeThe(true) + " " + it.getBreakingMessage());
+					this.removeItemFromHand(it);
+				}
+			}
+			var p = 2 + Math.floor(this._attackPower * ROT.RNG.getUniform()) + bonus;
+			target.raiseEvent('onHit', { attacker: this, power: p });
+		}
+		else {
+			Game.addMessage(m + " and misses");
+		}
+	},
+	isAggressive: function() {
+		return this._aggressive;
+	},
+	setAggressive: function(a) {
+		this._aggressive = a;
+	}
+}
+
 Game.Components.PlayerActor = {
 	name: 'PlayerActor',
 	groupName: 'Actor',
@@ -95,6 +145,18 @@ Game.Components.PlayerActor = {
 	act: function() {
 		this.raiseEvent('onAct');
 		this.getMap().startPlayerTurn();
+	},
+	eventListeners: {
+		onDeath: function() {
+			this._dead = true;
+			Game.addMessage("YOU ARE DEAD! Press enter to continue");
+		},
+		onJumpOnTable: function() {
+			Game.addMessage(this.getName() + ' jumps on a table. WHOO!');
+		},
+		onJumpOffTable: function() {
+			Game.addMessage(this.getName() + " jumps off a table. Party's over.");
+		}
 	}
 }
 
@@ -107,13 +169,29 @@ Game.Components.DrunkActor = {
 	setOwnedDrink: function(d) {
 		this._ownedDrink = d;
 	},
+	moveRandomly: function() {
+		var dirs = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
+		dirs = dirs.randomize();
+		if(this.getMap().getTile(this.getX()+dirs[0].x, this.getY()+dirs[0].y).getHeight() == 0) // Nice drunks don't jump on tables!
+			this.tryMove(this.getX()+dirs[0].x, this.getY()+dirs[0].y);
+	},
 	act: function() {
 		if(!this._chasedEntity) {
-			var dirs = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
-			dirs = dirs.randomize();
-			this.tryMove(this.getX()+dirs[0].x, this.getY()+dirs[0].y);
+			this.moveRandomly();
 		}
 		else {
+			if(this._chasedEntity.isDead()) {
+				this._chasedEntity = null;
+				this.setAggressive(false);
+			}
+			var offsetX = Math.abs(this._chasedEntity.getX() - this.getX());
+			var offsetY = Math.abs(this._chasedEntity.getY() - this.getY());
+			if(offsetX <= 1 && offsetY <= 1) {
+				// Next to the enemy! ATTACK!
+				this.attack(this._chasedEntity);
+				return;
+			}
+			
 			// CHASE THAT FUCKER
 			var me = this;
 			var chased = this._chasedEntity;
@@ -131,7 +209,10 @@ Game.Components.DrunkActor = {
 			var count = 0;
 			path.compute(me.getX(), me.getY(), function(x, y) {
 				if(count == 1) {
-					me.tryMove(x, y);
+					if(ROT.RNG.getUniform() > 0.5)
+						me.tryMove(x, y);
+					else
+						me.moveRandomly();
 				}
 				count++;
 			});
@@ -144,8 +225,35 @@ Game.Components.DrunkActor = {
 				
 			var i = data.item;
 			if(i == this._ownedDrink && this.canSee(data.picker)) {
+				this.setAggressive(true);
 				this._chasedEntity = data.picker;
+				Game.addMessage("A drunk looks angry");
 			}
+		},
+		somethingPeedOn: function(data) {
+			var p = data.peeingPerson;
+			if(this.canSee(p)) {
+				Game.addMessage("Someone saw " + p.getName() + " peeing");
+				// Inform all the entitites this drunk can see
+				var me = this;
+				var eX = p.getX();
+				var eY = p.getY();
+				this.getMap().getFov().compute(
+					this.getX(), this.getY(), this.getSightRadius(),
+					function(x, y, radius, visibility) {
+						var ent = me.getMap().getEntityAt(x, y);
+						if(ent) ent.raiseEvent('peeingPersonFound', { peeingPerson: p });
+					}
+				);
+			}
+		},
+		onTaunt: function(data) {
+			this.setAggressive(true);
+			this._chasedEntity = data.taunter;
+			Game.addMessage("A drunk looks angry");
+		},
+		onDeath: function() {
+			this.getMap().removeEntity(this);
 		}
 	}
 }
@@ -165,8 +273,22 @@ Game.Components.GuardActor = {
 		}
 	},
 	updateChase: function() {
-		if(!this._chasedEntity || !this.canSee(this._chasedEntity)) {
+		if(this._dontGiveUp) {
+			if(this.canSee(this._chasedEntity))
+				this._dontGiveUp = false; // When we first see the person we search for, being "normal" chase
+		}
+		else if(!this._chasedEntity || !this.canSee(this._chasedEntity) || this._chasedEntity.isDead()) {
+			this.setAggressive(false);
+			if(!this._chasedEntity.isDead()) Game.addMessage("A guard gives up the chase");
 			this.changeState('guard');
+			return;
+		}
+		
+		var offsetX = Math.abs(this._chasedEntity.getX() - this.getX());
+		var offsetY = Math.abs(this._chasedEntity.getY() - this.getY());
+		if(offsetX <= 1 && offsetY <= 1) {
+			// Next to the enemy! ATTACK!
+			this.attack(this._chasedEntity);
 			return;
 		}
 		
@@ -239,7 +361,46 @@ Game.Components.GuardActor = {
 				this._chasedEntity = p;
 				this.changeState('chase');
 				Game.addMessage("A guard looks angry");
+				this.setAggressive(true);
 			}
+		},
+		peeingPersonFound: function(data) {
+			this._chasedEntity = data.peeingPerson;
+			this._dontGiveUp = true;
+			this.changeState('chase');
+			Game.addMessage("A guard looks angry");
+			this.setAggressive(true);
+		},
+		onDeath: function() {
+			this.getMap().removeEntity(this);
+		}
+	}
+}
+
+Game.Components.Health = {
+	name: 'Health',
+	init: function(properties) {
+		this._health = properties['health'] || 10;
+	},
+	eventListeners: {
+		onHit: function(data) {
+			var d = data.power;
+			this._health -= d;
+			Game.addMessage(this.getName() + " takes " + d + " damage");
+			if(this._health <= 0) {
+				this.raiseEvent('onDeath');
+				Game.addMessage(this.getName() + " gets knocked out");
+			}
+			else if(this._health <= 5 && !this._beatenMessageSent) {
+				this._beatenMessageSent = true;
+				Game.addMessage(this.getName() + " is really hurt");
+				if(this.hasComponent('VitalStats')) this.addStatusMessage('You feel beaten');
+			}
+			
+			// BLOOD SPILLS!!
+			var dirs = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}, {x:0, y:0}];
+			dirs = dirs.randomize();
+			this.getMap().getTile(this.getX()+dirs[0].x, this.getY()+dirs[0].y).setForeground('red');
 		}
 	}
 }
@@ -252,6 +413,14 @@ Game.Components.VitalStats = {
 		this._funLevel = properties['funLevel'] || this._maxFun;
 		this._maxDrunk = properties['maxDrunk'] || 500;
 		this._drunk = 0;
+		
+		this._statusMessages = [];
+	},
+	addStatusMessage: function(m) {
+		this._statusMessages.push(m);
+	},
+	getStatusMessages: function() {
+		return this._statusMessages;
 	},
 	funStatus: function() {
 		var percent = this._funLevel / this._maxFun;
@@ -274,6 +443,7 @@ Game.Components.VitalStats = {
 		if(!this._nauseaMessageSent && this._drunk >= this._maxDrunk-50) {
 			Game.addMessage(this.getName() + " feels nauseous");
 			this._nauseaMessageSent = true;
+			this._statusMessages.push("You don't feel too great");
 			this.setSightRadius(5);
 		}
 	},
@@ -284,6 +454,7 @@ Game.Components.VitalStats = {
 		onDrink: function(data) {
 			var f = data.funRatio;
 			this.funChange(f);
+			this.drunkChange(f);
 		},
 		onAct: function() {
 			this.funChange(-1);
@@ -291,6 +462,9 @@ Game.Components.VitalStats = {
 		},
 		onPantsPeed: function() {
 			this.funChange(-(this._maxFun / 2));
+		},
+		onHit: function(data) {
+			this.funChange(-(data.power*3));
 		}
 	}
 }
@@ -375,6 +549,9 @@ Game.Components.Wallet = {
 	getMoney: function() {
 		return this._money;
 	},
+	addMoney: function(amount) {
+		this._money += amount;
+	},
 	useMoney: function(amount) {
 		if(this._money >= amount) {
 			this._money -= amount;
@@ -383,6 +560,80 @@ Game.Components.Wallet = {
 		else {
 			return false;
 		}
+	}
+}
+
+// !!!!!!!!!!!!
+// INTERACTIONS
+// !!!!!!!!!!!!
+Game.Components.BartenderInteractable = {
+	name: 'BartenderInteractable',
+	groupName: 'Interactable',
+	init: function(properties) {
+		this._interactionImage = properties['interactionImage'] || Game.ImageUtilities.getRandomImage();
+		this._interactionMessage = properties['interactionMessage'] || "What'll it be, fella?";
+	},
+	interact: function(interacter) {
+		Game.Screens.dialogScreen.setup({
+			image: this._interactionImage,
+			message: this._interactionMessage,
+			selections: [
+				{ title: "Gimme a beer (4$)", select:
+					function() { 
+						if(interacter.useMoney(4)) {
+							Game.Screens.dialogScreen._message = "Alright, anything else?";
+							var item = Game.ItemFactory.create('beer');
+							Game.addMessage(interacter.getName() + " buys a beer");
+							if(!interacter.pickItem(item)) interacter.getMap().getTile(interacter.getX(), interacter.getY()).addItem(item);
+						}
+						else {
+							Game.Screens.dialogScreen._message = "You can't afford that, buddy.";
+						}
+					} 
+				},
+				{ title: "Uhhh nothing thanks", select: function() { Game.Screens.playScreen.setSubscreen(null); } }
+			]
+		});
+		Game.Screens.playScreen.setSubscreen(Game.Screens.dialogScreen);
+	}
+}
+
+Game.Components.DrunkInteractable = {
+	name: 'BartenderInteractable',
+	groupName: 'Interactable',
+	init: function(properties) {
+		this._interactionImage = properties['interactionImage'] || Game.ImageUtilities.getRandomImage();
+		this._interactionMessage = properties['interactionMessage'] || Game.TextUtilities.getRandomTaunt();
+		this._interactedCount = 0;
+	},
+	interact: function(interacter) {
+		this._interactedCount++;
+		if(this._interactedCount >= 3) {
+			this._interactionMessage = "Alright that doesh it buddee. Let's dance!";
+		}
+		else {
+			this._interactionMessage = Game.TextUtilities.getRandomTaunt();
+		}
+		var me = this;
+		Game.Screens.dialogScreen.setup({
+			image: this._interactionImage,
+			message: this._interactionMessage,
+			selections: [
+				{ title: "Watch where you're going, dickweed!", select:
+					function() { 
+						me.raiseEvent('onTaunt', { taunter: interacter });
+						Game.Screens.playScreen.setSubscreen(null);
+					} 
+				},
+				{ title: "Ummm sorry pal, I'll just be on my way.", select:
+					function() {
+						if(me._interactedCount >= 3) me.raiseEvent('onTaunt', { taunter: interacter });
+						Game.Screens.playScreen.setSubscreen(null);
+					} 
+				}
+			]
+		});
+		Game.Screens.playScreen.setSubscreen(Game.Screens.dialogScreen);
 	}
 }
 
@@ -444,5 +695,72 @@ Game.Components.Drinkable = {
 		}
 		
 		return r + Game.GameObject.prototype.describe.call(this)
+	}
+}
+
+Game.Components.Weapon = {
+	name: 'Weapon',
+	init: function(properties) {
+		this._attackPower = properties['attackPower'] || 1;
+		this._breaksOnAttack = (properties['breaksOnAttack'] != undefined) ? properties['breaksOnAttack'] : true;
+	},
+	getAttackPower: function() {
+		return this._attackPower;
+	},
+	breaksOnAttack: function() {
+		return this._breaksOnAttack;
+	}
+}
+
+Game.Components.Breakable = {
+	name: 'Breakable',
+	init: function(properties) {
+		this._breakingMessage = properties['breakingMessage'] || 'shatters';
+	},
+	getBreakingMessage: function() {
+		return this._breakingMessage;
+	}
+}
+
+Game.Components.Container = {
+	name: 'Container',
+	groupName: 'Usable',
+	init: function(properties) {
+		this._contents = properties['contents'] || { money: Math.floor(ROT.RNG.getUniform() * 10 ) };
+	},
+	getUsingMessage: function() {
+		var m = "opens " + this.describeThe() + " and takes its contents";
+		return m;
+	},
+	use: function(user) {
+		if(this._contents.money) {
+			user.addMoney(this._contents.money);
+			Game.addMessage(user.getName() + " takes $" + this._contents.money + " from " + this.describeA());
+		}
+		
+		user.removeItemFromHand(this);
+	}
+}
+
+Game.Components.Peanuts = {
+	name: 'Peanuts',
+	groupName: 'Usable',
+	getUsingMessage: function() {
+		return "eats " + this.describeA();
+	},
+	getPeedOn: function() {
+		Game.GameObject.prototype.getPeedOn.call(this);
+		this.setName("Pee-nuts");
+	},
+	describeA: function() {
+		return "some " + this.describe();
+	},
+	use: function(user) {
+		if(this.hasPeeOnIt()) {
+			user.raiseEvent('onDrink', { funRatio: -10, peeRatio: 0 });
+		}
+		else {
+			user.raiseEvent('onDrink', { funRatio: 1, peeRatio: 0 });
+		}
 	}
 }

@@ -1,4 +1,6 @@
-Game.Map = function(tiles) {
+Game.Map = function(tiles, rooms) {
+	this._rooms = rooms;
+	
 	this._tiles = tiles;
 	this._width = tiles[0].length;
 	this._height = tiles.length;
@@ -18,11 +20,20 @@ Game.Map = function(tiles) {
 	this._entities = [];
 }
 
+Game.Map.prototype.getRooms = function() {
+	return this._rooms;
+}
+
 Game.Map.prototype.getWidth = function() {
 	return this._width;
 }
 Game.Map.prototype.getHeight = function() {
 	return this._height;
+}
+Game.Map.prototype.setTile = function(x, y, tile) {
+	this._tiles[y][x] = tile;
+	tile.setMap(this);
+	tile.setPosition(x, y);
 }
 Game.Map.prototype.getTile = function(x, y) {
 	if(x < 0 || x >= this.getWidth() || y < 0 || y >= this.getHeight()) {
@@ -96,9 +107,51 @@ Game.Map.prototype.getEntityAt = function(x, y) {
 	}
 	return null;
 }
+Game.Map.prototype.removeEntity = function(entity) {
+	for(var i = 0; i < this._entities.length; i++) {
+		if(this._entities[i] == entity) {
+			this._entities.splice(i, 1);
+			break;
+		}
+	}
+	
+	if(entity.hasComponent('Actor')) {
+		this._scheduler.remove(entity);
+	}
+}
+
+Game.Map.prototype.getRandomTile = function(tileName) {
+	var x = 0;
+	var y = 0;
+	var tries = 0;
+	do {
+		x = Math.floor(ROT.RNG.getUniform() * this.getWidth());
+		y = Math.floor(ROT.RNG.getUniform() * this.getHeight());
+		tries++;
+		if(tries > 300) {
+			return false; // We're never gonna find a proper tile!!
+		}
+	} while(this.getTile(x, y).getName() != tileName);
+	return {x: x, y: y};
+}
 
 Game.Map.prototype.isEmptyFloor = function(x, y) {
-	return this.getTile(x, y).isWalkable() && !this.getEntityAt(x, y);
+	return this.getTile(x, y).getName() == 'floor' && !this.getEntityAt(x, y);
+}
+
+Game.Map.prototype.getRandomFloorPositionWithin = function(mx, my, mw, mh) {
+	// Randomly generate a tile which is a floor
+	var x = 0;
+	var y = 0;
+	var maxTries = mw * mh;
+	var tries = 0;
+	do {
+		x = Math.floor(mx + ROT.RNG.getUniform() * mw);
+		y = Math.floor(my + ROT.RNG.getUniform() * mh);
+		tries++;
+		if(tries > maxTries) return false;
+	} while(!this.isEmptyFloor(x, y));
+	return {x: x, y: y};
 }
 
 Game.Map.prototype.getRandomFloorPosition = function() {

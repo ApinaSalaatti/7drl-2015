@@ -1,11 +1,11 @@
 var Game = {
 	_display: null,
 	_screenWidth: 120,
-	_screenHeight: 26,
+	_screenHeight: 28,
 	_currentScreen: null,
 	_messages: [],
 	init: function() {
-		this._display = new ROT.Display({ width: this._screenWidth, height: this._screenHeight, fg: 'white', bg: 'black' });
+		this._display = new ROT.Display({ width: this._screenWidth, height: this._screenHeight, fg: 'black', bg: 'white' });
 		var game = this;
 		window.addEventListener('keydown', function(e) {
 			if(e.keyCode == 8) e.preventDefault();
@@ -35,6 +35,9 @@ var Game = {
 		this.refresh();
 	},
 	
+	clearMessages: function() {
+		this._messages = [];
+	},
 	addMessage: function(m) {
 		var turn = '[' + Game.turnNumber + '] ';
 		this._messages.push(turn + m);

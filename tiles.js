@@ -4,6 +4,7 @@ Game.Tile = function(id, properties) {
 	this._walkable = properties['walkable'] || false;
 	this._blocksLight = properties['blocksLight'] != 'undefined' ? properties['blocksLight'] : true;
 	this._canHavePeeOnIt = properties['canHavePeeOnIt'] != undefined ? properties['canHavePeeOnIt'] : true; // BY DEFAULT EVERY TILE CAN HAVE PEE ON THEM!!
+	this._height = properties['height'] || 0;
 	this._items = [];
 	this._map = null;
 	this._x = 0;
@@ -21,6 +22,10 @@ Game.Tile.prototype.getY = function() {
 Game.Tile.prototype.setPosition = function(x, y) {
 	this._x = x;
 	this._y = y;
+}
+
+Game.Tile.prototype.getHeight = function() {
+	return this._height;
 }
 
 Game.Tile.prototype.getName = function() {
@@ -49,7 +54,8 @@ Game.Tile.prototype.getPeedOn = function() {
 	if(this.hasPeeOnIt()) {
 		var dirs = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
 		dirs = dirs.randomize();
-		this.getMap().getTile(this.getX()+dirs[0].x, this.getY()+dirs[0].y).getPeedOn();
+		if(this.getMap().getTile(this.getX()+dirs[0].x, this.getY()+dirs[0].y).getHeight() <= this.getHeight())
+			this.getMap().getTile(this.getX()+dirs[0].x, this.getY()+dirs[0].y).getPeedOn();
 	}
 	else if(this._canHavePeeOnIt) {
 		Game.Glyph.prototype.getPeedOn.call(this);
@@ -92,5 +98,7 @@ Game.Tiles = {};
 Game.Tiles.nullTile = new Game.Tile({ canHavePeeOnIt: false }); // null tile so we can use an awesome null object pattern
 
 Game.TileFactory = new Game.Factory('tiles', Game.Tile);
-Game.TileFactory.defineTemplate('floor', { name: "floor", character: '.', foreground: 'grey', walkable: true, blocksLight: false });
+Game.TileFactory.defineTemplate('floor', { name: "floor", character: '.', foreground: 'white', walkable: true, blocksLight: false });
 Game.TileFactory.defineTemplate('wall', { name: "wall", character: '#', foreground: 'lightGrey', background: 'lightGrey', blocksLight: true, canHavePeeOnIt: false });
+Game.TileFactory.defineTemplate('table', { name: "table", character: '=', foreground: 'brown', blocksLight: false, canHavePeeOnIt: true, walkable: true, height: 1 });
+Game.TileFactory.defineTemplate('chair', { name: "chair", character: 'o', foreground: 'grey', blocksLight: false, canHavePeeOnIt: true, walkable: true, height: 1 });

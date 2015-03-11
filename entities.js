@@ -4,6 +4,7 @@ Game.Entity = function(id, properties) {
 	this._x = properties['x'] || 0;
 	this._y = properties['y'] || 0;
 	this._map = null;
+	this._dead = false;
 }
 Game.Entity.extend(Game.GameObject);
 
@@ -25,6 +26,10 @@ Game.Entity.prototype.setPosition = function(x, y) {
 	this._y = y;
 }
 
+Game.Entity.prototype.isDead = function() {
+	return this._dead;
+}
+
 Game.Entity.prototype.tryMove = function(x, y) {
 	var tile = this.getMap().getTile(x, y);
 	if(!tile.isWalkable()) {
@@ -35,13 +40,26 @@ Game.Entity.prototype.tryMove = function(x, y) {
 	}
 	var e = this.getMap().getEntityAt(x, y);
 	if(e) {
-		if(e.hasComponent('Interactable')) {
+		if(e.hasComponent('Attacker') && e.isAggressive()) {
+			this.attack(e);
+		}
+		else if(this.hasComponent('PlayerActor') && e.hasComponent('Interactable')) {
 			e.interact(this);
 		}
 		return false;
 	}
 	
+	var oldTile = this.getMap().getTile(this.getX(), this.getY());
 	this.setPosition(x, y);
+	var newTile = this.getMap().getTile(this.getX(), this.getY());
+	
+	if(oldTile.getName() != 'table' && newTile.getName() == 'table') {
+		this.raiseEvent('onJumpOnTable');
+	}
+	else if(oldTile.getName() == 'table' && newTile.getName() != 'table') {
+		this.raiseEvent('onJumpOffTable');
+	}
+	
 	return true;
 }
 
@@ -57,9 +75,12 @@ Game.EntityFactory.defineTemplate(
 		character: '@',
 		foreground: 'green',
 		sightRadius: 20,
+		hitChance: 0.8,
+		health: 20,
+		attackPower: 5,
 		components: [
 			Game.Components.Peeing, Game.Components.Hands, Game.Components.Sight, Game.Components.PlayerActor, Game.Components.Wallet, Game.Components.Human,
-			Game.Components.VitalStats
+			Game.Components.VitalStats, Game.Components.Health, Game.Components.Attacker
 		]
 	},
 	{}
@@ -69,10 +90,17 @@ Game.EntityFactory.defineTemplate(
 	'drunk',
 	{
 		name: 'Drunk',
-		character: '@',
+		character: 'D',
 		foreground: 'blue',
 		sightRadius: 15,
-		components: [Game.Components.Hands, Game.Components.Sight, Game.Components.DrunkActor, Game.Components.Human]
+		hitChance: 0.3,
+		health: 5,
+		attackPower: 3,
+		attackMessage: 'swings drunkenly at',
+		components: [
+			Game.Components.Hands, Game.Components.Sight, Game.Components.DrunkActor, Game.Components.Human, Game.Components.Health, Game.Components.Attacker,
+			Game.Components.DrunkInteractable
+		]
 	},
 	{ isRandomlySpawnable: true }
 );
@@ -81,10 +109,25 @@ Game.EntityFactory.defineTemplate(
 	'guard',
 	{
 		name: 'Guard',
-		character: '@',
+		character: 'G',
 		foreground: 'red',
 		sightRadius: 30,
-		components: [Game.Components.Hands, Game.Components.Sight, Game.Components.GuardActor, Game.Components.Human]
+		hitChance: 0.7,
+		attackPower: 7,
+		health: 10,
+		components: [Game.Components.Hands, Game.Components.Sight, Game.Components.GuardActor, Game.Components.Human, Game.Components.Health, Game.Components.Attacker]
+	},
+	{ isRandomlySpawnable: true }
+);
+
+Game.EntityFactory.defineTemplate(
+	'bartender',
+	{
+		name: 'Bartender',
+		character: 'B',
+		foreground: 'yellow',
+		sightRadius: 30,
+		components: [Game.Components.Hands, Game.Components.Sight, Game.Components.BartenderInteractable, Game.Components.Human]
 	},
 	{ isRandomlySpawnable: true }
 );

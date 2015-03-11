@@ -91,8 +91,8 @@ MapBuilder.prototype.iterate = function() {
 }
 
 MapBuilder.prototype.buildClub = function() {
-	var roomAmount = 10 + Math.floor(ROT.RNG.getUniform() * 10);
-	roomAmount = 9;
+	//var roomAmount = 10 + Math.floor(ROT.RNG.getUniform() * 10);
+	var roomAmount = 20;
 	//console.log("Creating " + roomAmount + " rooms.");
 	
 	this._allRooms = [];
@@ -275,7 +275,7 @@ MapBuilder.prototype.buildClub = function() {
 		if(r.sideRoomId != -1) this.carveCorridor(r, this.getRoomWithID(r.sideRoomId), map);
 	}
 	
-	return new Game.Map(map);
+	return new Game.Map(map, this._allRooms);
 }
 
 MapBuilder.prototype.carveCorridor = function(room1, room2, map) {
