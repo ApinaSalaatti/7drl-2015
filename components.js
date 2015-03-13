@@ -108,9 +108,13 @@ Game.Components.Attacker = {
 		else if(this.getItemInHand('left') && this.getItemInHand('left').hasComponent('Weapon'))
 			it = this.getItemInHand('left');
 		
-		if(it) m += " with " + it.describeA();
+		var hitModifier = 0;
+		if(it) {
+			m += " with " + it.describeA();
+			hitModifier = it.getHitChanceModifier();
+		}
 		
-		if(ROT.RNG.getUniform() < this._hitChance) {
+		if(ROT.RNG.getUniform() < (this._hitChance + hitModifier)) {
 			Game.addMessage(m);
 			this.raiseEvent('onAttack', { target: target });
 			var bonus = 0;
@@ -160,6 +164,64 @@ Game.Components.PlayerActor = {
 	}
 }
 
+Game.Components.QueuerActor = {
+	name: 'QueuerActor',
+	groupName: 'Actor',
+	init: function(properties) {
+	
+	},
+	act: function() {
+		if(!this._chasedEntity) {
+			return;
+		}
+		else {
+			if(this._chasedEntity.isDead()) {
+				this._chasedEntity = null;
+				this.setAggressive(false);
+			}
+			var offsetX = Math.abs(this._chasedEntity.getX() - this.getX());
+			var offsetY = Math.abs(this._chasedEntity.getY() - this.getY());
+			if(offsetX <= 1 && offsetY <= 1) {
+				// Next to the enemy! ATTACK!
+				this.attack(this._chasedEntity);
+				return;
+			}
+			
+			// CHASE THAT FUCKER
+			var me = this;
+			var chased = this._chasedEntity;
+			var map = this.getMap();
+			var path = new ROT.Path.AStar(chased.getX(), chased.getY(),
+				function(x, y) {
+					var e = map.getEntityAt(x, y);
+					if(e && e != chased && e != me) return false; // If there's an entity at the coordinates, it is blocked
+					else return map.getTile(x, y).isWalkable();
+				},
+				{ topology: 8}
+			);
+			
+			// Now calculate the points on the path. The SECOND is the square we want to move to (the first is our current position)
+			var count = 0;
+			path.compute(me.getX(), me.getY(), function(x, y) {
+				if(count == 1) {
+					me.tryMove(x, y);
+				}
+				count++;
+			});
+		}
+	},
+	eventListeners: {
+		queuerTaunted: function(data) {
+			this.setAggressive(true);
+			this._chasedEntity = data.taunter;
+			Game.addMessage("A queuer looks angry");
+		},
+		onDeath: function() {
+			this.getMap().removeEntity(this);
+		}
+	}
+}
+
 Game.Components.DrunkActor = {
 	name: 'DrunkActor',
 	groupName: 'Actor',
@@ -189,6 +251,9 @@ Game.Components.DrunkActor = {
 			if(offsetX <= 1 && offsetY <= 1) {
 				// Next to the enemy! ATTACK!
 				this.attack(this._chasedEntity);
+				if(this._chasedEntity.getHealth() <= 0) {
+					Game.Screens.loseScreen.setup("The drunk beats you senseless. That probably means the party is over", Game.ImageUtilities.getBeatenImage());
+				}
 				return;
 			}
 			
@@ -289,6 +354,9 @@ Game.Components.GuardActor = {
 		if(offsetX <= 1 && offsetY <= 1) {
 			// Next to the enemy! ATTACK!
 			this.attack(this._chasedEntity);
+			if(this._chasedEntity.getHealth() <= 0) {
+				Game.Screens.loseScreen.setup("You are thrown out of the bar", Game.ImageUtilities.getStreetImage());
+			}
 			return;
 		}
 		
@@ -382,6 +450,9 @@ Game.Components.Health = {
 	init: function(properties) {
 		this._health = properties['health'] || 10;
 	},
+	getHealth: function() {
+		return this._health;
+	},
 	eventListeners: {
 		onHit: function(data) {
 			var d = data.power;
@@ -409,9 +480,9 @@ Game.Components.Health = {
 Game.Components.VitalStats = {
 	name: 'VitalStats',
 	init: function(properties) {
-		this._maxFun = properties['maxFun'] || 1000;
+		this._maxFun = properties['maxFun'] || 500;
 		this._funLevel = properties['funLevel'] || this._maxFun;
-		this._maxDrunk = properties['maxDrunk'] || 500;
+		this._maxDrunk = properties['maxDrunk'] || 400;
 		this._drunk = 0;
 		
 		this._statusMessages = [];
@@ -440,21 +511,35 @@ Game.Components.VitalStats = {
 	},
 	drunkChange: function(amount) {
 		this._drunk += amount;
+		if(this._drunk < 0)
+			this._drunk = 0;
+		
 		if(!this._nauseaMessageSent && this._drunk >= this._maxDrunk-50) {
 			Game.addMessage(this.getName() + " feels nauseous");
 			this._nauseaMessageSent = true;
 			this._statusMessages.push("You don't feel too great");
 			this.setSightRadius(5);
 		}
+		
+		if(this._drunk >= this._maxDrunk) {
+			Game.addMessage(this.getName() + " vomits violently");
+			this.funChange(-100);
+		}
 	},
 	funChange: function(amount) {
 		this._funLevel += amount;
+		if(this._funLevel <= 0) {
+			this._dead = true;
+			Game.Screens.loseScreen.setup("The party is a total bummer and you decide to leave. You pee into your pants on your way home.", Game.ImageUtilities.getLamePartyImage());
+		}
 	},
 	eventListeners: {
 		onDrink: function(data) {
 			var f = data.funRatio;
 			this.funChange(f);
-			this.drunkChange(f);
+			this.drunkChange(f*5);
+			console.log(this._drunk);
+			console.log(this._maxDrunk);
 		},
 		onAct: function() {
 			this.funChange(-1);
@@ -464,7 +549,7 @@ Game.Components.VitalStats = {
 			this.funChange(-(this._maxFun / 2));
 		},
 		onHit: function(data) {
-			this.funChange(-(data.power*3));
+			this.funChange(50);
 		}
 	}
 }
@@ -637,6 +722,57 @@ Game.Components.DrunkInteractable = {
 	}
 }
 
+Game.Components.QueuerInteractable = {
+	name: 'QueuerInteractable',
+	groupName: 'Interactable',
+	init: function(properties) {
+		this._placeInLine = -1;
+		this._interactionImage = properties['interactionImage'] || Game.ImageUtilities.getRandomImage();
+	},
+	interact: function(interacter) {
+		this._interactedCount++;
+		this._interactionMessage = "Hey there's a line here, buddy!";
+		var me = this;
+		Game.Screens.dialogScreen.setup({
+			image: this._interactionImage,
+			message: this._interactionMessage,
+			selections: [
+				{ title: "Fuck you I'm coming through!", select:
+					function() { 
+						me.getMap().broadcastEvent('queuerTaunted', { taunter: interacter });
+						Game.Screens.playScreen.setSubscreen(null);
+					} 
+				},
+				{ title: "Ermmm maybe I could buy your spot for like $60?", select:
+					function() { 
+						if(me._placeInLine == 0) {
+							Game.Screens.dialogScreen._message = "Ahh no way, I'm next in line dude!";
+						}
+						else {
+							if(interacter.useMoney(60)) {
+								me.getMap().removeEntity(me);
+								Game.Screens.playScreen.setSubscreen(null);
+							}
+							else {
+								Game.Screens.dialogScreen._message = "Hah, you don't even have that much dosh man!";
+							}
+						}
+					} 
+				},
+				{ title: "Ummm sorry pal, I'll just be on my way.", select:
+					function() {
+						Game.Screens.playScreen.setSubscreen(null);
+					} 
+				}
+			]
+		});
+		Game.Screens.playScreen.setSubscreen(Game.Screens.dialogScreen);
+	},
+	setPlaceInLine: function(p) {
+		this._placeInLine = p;
+	}
+}
+
 /*
  * Components for items
  */
@@ -703,9 +839,13 @@ Game.Components.Weapon = {
 	init: function(properties) {
 		this._attackPower = properties['attackPower'] || 1;
 		this._breaksOnAttack = (properties['breaksOnAttack'] != undefined) ? properties['breaksOnAttack'] : true;
+		this._hitChanceModifier = properties['hitChanceModifier'] || 0;
 	},
 	getAttackPower: function() {
 		return this._attackPower;
+	},
+	getHitChanceModifier: function() {
+		return this._hitChanceModifier;
 	},
 	breaksOnAttack: function() {
 		return this._breaksOnAttack;

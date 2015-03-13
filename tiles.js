@@ -102,3 +102,4 @@ Game.TileFactory.defineTemplate('floor', { name: "floor", character: '.', foregr
 Game.TileFactory.defineTemplate('wall', { name: "wall", character: '#', foreground: 'lightGrey', background: 'lightGrey', blocksLight: true, canHavePeeOnIt: false });
 Game.TileFactory.defineTemplate('table', { name: "table", character: '=', foreground: 'brown', blocksLight: false, canHavePeeOnIt: true, walkable: true, height: 1 });
 Game.TileFactory.defineTemplate('chair', { name: "chair", character: 'o', foreground: 'grey', blocksLight: false, canHavePeeOnIt: true, walkable: true, height: 1 });
+Game.TileFactory.defineTemplate('toilet', { name: "toilet", character: 'T', foreground: 'green', blocksLight: false, canHavePeeOnIt: true, walkable: true, height: 0 });

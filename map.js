@@ -18,6 +18,15 @@ Game.Map = function(tiles, rooms) {
 	this._setupFov();
 	
 	this._entities = [];
+	
+	this._discoBalls = [];
+}
+
+Game.Map.prototype.setDiscoBalls = function(db) {
+	this._discoBalls = db;
+}
+Game.Map.prototype.getDiscoBalls = function() {
+	return this._discoBalls;
 }
 
 Game.Map.prototype.getRooms = function() {
@@ -31,6 +40,10 @@ Game.Map.prototype.getHeight = function() {
 	return this._height;
 }
 Game.Map.prototype.setTile = function(x, y, tile) {
+	if(x < 0 || x >= this.getWidth() || y < 0 || y >= this.getHeight()) {
+		return;
+	}
+	
 	this._tiles[y][x] = tile;
 	tile.setMap(this);
 	tile.setPosition(x, y);

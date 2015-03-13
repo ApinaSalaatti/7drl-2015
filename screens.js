@@ -99,10 +99,9 @@ Game.Screens.playScreen = {
 		}
 		
 		if(this._player.isDead()) {
-			if(eventData.keyCode == ROT.VK_RETURN) {
-				Game.switchScreen(Game.Screens.startScreen);
-			}
-			
+			//if(eventData.keyCode == ROT.VK_RETURN) {
+				Game.switchScreen(Game.Screens.loseScreen);
+			//}
 			return;
 		}
 		
@@ -188,8 +187,8 @@ Game.Screens.playScreen = {
 			this._subscreen.render(display);
 		}
 		else {
-			var r = Math.floor((0.5 + Math.sin(Game.turnNumber / 10) / 2) * 255);
-			var g = 255 - Math.floor((0.5 + Math.sin(Game.turnNumber / 10) / 2) * 255);
+			var r = Math.floor((0.5 + Math.sin(Game.turnNumber / 2) / 2) * 255);
+			var g = 255 - Math.floor((0.5 + Math.sin(Game.turnNumber / 2) / 2) * 255);
 			var b = 50;
 			display.setOptions({bg: ROT.Color.toRGB([r,g,b])});
 			document.body.style.background = ROT.Color.toRGB([r,g,b]);
@@ -207,9 +206,26 @@ Game.Screens.playScreen = {
 		topLeftY = Math.min(Math.max(0, topLeftY), this._map.getHeight() - sh);
 		
 		var visibleCells = this._map.calculateFov(this._player.getX(), this._player.getY(), this._player.getSightRadius());
-	
+		
+		// GET DISCO LIGHTING!!
+		var d = this._map.getDiscoBalls();
+		var lights = [];
+		if(!this._lightState)
+			this._lightState = 1;
+		else
+			this._lightState = 0;
+			
+		for(var i = 0; i < d.length; i++) {
+			var l = this._getLightLines(d[i].x, d[i].y);
+			for(var j = 0; j < l.length; j++) {
+				this._map.getTile(l[j].x, l[j].y).isInDiscoLight = true;
+			}
+		}
+		
+		// LETS RENDER
 		for(var y = topLeftY; y < topLeftY+sh; y++) {
 			for(var x = topLeftX; x < topLeftX+sw; x++) {
+				var t = this._map.getTile(x, y);
 				var glyph = this._map.getTile(x, y);
 				
 				// Check for visibility and draw if visible or visited (visited tiles are greyed)
@@ -222,8 +238,21 @@ Game.Screens.playScreen = {
 							fg = glyph.getForeground();
 						}
 					}
-					var bg = '';
+					var bg = display._options.bg;
 					if(glyph.getBackground() != 'black') bg = glyph.getBackground();
+					
+					// Being in disco light just adds to some colors, I dunno
+					if(t.isInDiscoLight) {
+						var f = ROT.Color.fromString(fg);
+						var b = ROT.Color.fromString(bg);
+						f[0] += 100;
+						f[1] += 30;
+						b[0] += 100;
+						b[1] += 30;
+						
+						fg = ROT.Color.toRGB(f);
+						bg = ROT.Color.toRGB(b);
+					}
 					display.draw(1+x-topLeftX, 1+y-topLeftY, glyph.getCharacter(), fg, bg);
 				}
 			}
@@ -235,12 +264,129 @@ Game.Screens.playScreen = {
 			if(e.getX() >= topLeftX && e.getX() < topLeftX+sw && e.getY() >= topLeftY && e.getY() < topLeftY+sh) {
 				// Check for visibility and draw if visible
 				if(visibleCells[e.getX() + ',' + e.getY()]) {
-					var bg = '';
+					var bg = display._options.bg;
+					var fg = e.getForeground();
 					if(e.getBackground() != 'black') bg = e.getBackground();
-					display.draw(1+e.getX()-topLeftX, 1+e.getY()-topLeftY, e.getCharacter(), e.getForeground(), bg);
+					
+					var t = this._map.getTile(e.getX(), e.getY());
+					// Being in disco light just adds to some colors, I dunno
+					if(t.isInDiscoLight) {
+						var f = ROT.Color.fromString(fg);
+						var b = ROT.Color.fromString(bg);
+						f[0] += 100;
+						f[1] += 30;
+						b[0] += 100;
+						b[1] += 30;
+						
+						fg = ROT.Color.toRGB(f);
+						bg = ROT.Color.toRGB(b);
+					}
+					
+					display.draw(1+e.getX()-topLeftX, 1+e.getY()-topLeftY, e.getCharacter(), fg, bg);
 				}
 			}
 		}
+		
+		// Cancel this frame's disco lights
+		for(var i = 0; i < d.length; i++) {
+			var l = this._getLightLines(d[i].x, d[i].y);
+			for(var j = 0; j < l.length; j++) {
+				this._map.getTile(l[j].x, l[j].y).isInDiscoLight = false;
+			}
+		}
+	},
+	
+	_getLightLines: function(fromX, fromY) {
+		// Render all lines for maximum of 20 x and/or 15 y
+		var r = [];
+		if(!this._lightState) {
+			var tiles = this._getLightLine(fromX, fromY, fromX+20, fromY+15);
+			for(var i = 0; i < tiles.length; i++) {
+				r.push(tiles[i]);
+			}
+			
+			tiles = this._getLightLine(fromX, fromY, fromX+20, fromY-15);
+			for(var i = 0; i < tiles.length; i++) {
+				r.push(tiles[i]);
+			}
+			
+			tiles = this._getLightLine(fromX, fromY, fromX-20, fromY+15);
+			for(var i = 0; i < tiles.length; i++) {
+				r.push(tiles[i]);
+			}
+			
+			tiles = this._getLightLine(fromX, fromY, fromX-20, fromY-15);
+			for(var i = 0; i < tiles.length; i++) {
+				r.push(tiles[i]);
+			}
+		}
+		else {
+			tiles = this._getLightLine(fromX, fromY, fromX-20, fromY);
+			for(var i = 0; i < tiles.length; i++) {
+				r.push(tiles[i]);
+			}
+			
+			tiles = this._getLightLine(fromX, fromY, fromX+20, fromY);
+			for(var i = 0; i < tiles.length; i++) {
+				r.push(tiles[i]);
+			}
+			
+			tiles = this._getLightLine(fromX, fromY, fromX, fromY-15);
+			for(var i = 0; i < tiles.length; i++) {
+				r.push(tiles[i]);
+			}
+			
+			tiles = this._getLightLine(fromX, fromY, fromX, fromY+15);
+			for(var i = 0; i < tiles.length; i++) {
+				r.push(tiles[i]);
+			}
+		}
+		
+		return r;
+	},
+	
+	_getLightLine: function(x0, y0, x1, y1) {
+		var r = [];
+		// Render a line of light from given position to given position or until a wall is hit
+		// Using the Bresenham line algorithm
+		var dx = x0 - x1;
+		var dy = y0 - y1;
+		if(dx == 0) {
+			var x = x0;
+			var yChange = dy < 0 ? 1 : -1;
+			for(var y = y0; y != y1; y += yChange) {
+				var t = this._map.getTile(x, y);
+				if(t.getName() == 'wall')
+					return r;
+				if(t != Game.Tiles.nullTile)
+					r.push({x:x, y:y});
+			}
+		}
+		else {
+			var error = 0;
+			var deltaErr = Math.abs(dy / dx);
+			var y = y0;
+			var xChange = dx < 0 ? 1 : -1;
+			for(x = x0; x != x1; x += xChange) {
+				var t = this._map.getTile(x, y);
+				if(t.getName() == 'wall')
+					return r;
+				
+				if(t != Game.Tiles.nullTile)
+					r.push({x:x, y:y});
+				error += deltaErr;
+				while(error >= 0.5) {
+					if(t.getName() == 'wall')
+						return r;
+						
+					if(t != Game.Tiles.nullTile)
+						r.push({x:x, y:y});
+					y += dy < 0 ? 1 : -1;
+					error -= 1;
+				}
+			}
+		}
+		return r;
 	},
 	
 	_renderUI: function(display) {
@@ -320,11 +466,67 @@ Game.Screens.dialogScreen = {
 	render: function(display) {
 		Game.DrawingUtilities.drawImage(0, 0, display, this._image);
 		
-		display.drawText(1, Game.getScreenHeight() - 6, this._message);
+		display.drawText(4, Game.getScreenHeight() - 15, this._message);
 		for(var i = 0; i < this._selections.length; i++) {
 			var bg = '';
 			if(i == this._selected) bg = '%b{lightGrey}'
 			display.drawText(1, Game.getScreenHeight() - 5 + i, bg + this._selections[i].title);
 		}
+	}
+}
+
+Game.Screens.loseScreen = {
+	setup: function(message, image) {
+		this._message = message || "You lose!";
+		this._image = image || Game.ImageUtilities.getStreetImage();
+	},
+	enter: function() {
+	
+	},
+	exit: function() {
+	
+	},
+	handleInput: function(eventName, eventData) {
+		if(eventName == 'keydown') {
+			if(eventData.keyCode == ROT.VK_RETURN) {
+				Game.switchScreen(Game.Screens.startScreen);
+			}
+		}
+	},
+	render: function(display) {
+		Game.DrawingUtilities.drawImage(0, 0, display, this._image);
+		
+		var col = '%c{yellow}';
+		
+		display.drawText(10, 10, col + this._message);
+		display.drawText(40, 18, col + "PRESS ENTER TO RESTART");
+	}
+}
+
+Game.Screens.victoryScreen = {
+	enter: function() {
+		
+	},
+	exit: function() {
+	
+	},
+	handleInput: function(eventName, eventData) {
+		if(eventName == 'keydown') {
+			if(eventData.keyCode == ROT.VK_RETURN) {
+				Game.switchScreen(Game.Screens.startScreen);
+			}
+		}
+	},
+	render: function(display) {
+		Game.DrawingUtilities.drawImage(0, 0, display, Game.ImageUtilities.getToiletImage());
+		
+		var col = '%c{yellow}';
+		
+		display.drawText(3, 5, col + "Your whole body trembles as you enter the filthy toilet booth");
+		display.drawText(1, 8, col + "A smell of something that probably once was digested by someone in this club lingers in the toilet");
+		display.drawText(5, 10, col + "For you, though, the smell does not signify sickness or disease");
+		display.drawText(7, 11, col + "It signifies your journey is finally");
+		display.drawText(16, 13, col + "OVER");
+		display.drawText(50, 20, col + "THE END!");
 	}
 }

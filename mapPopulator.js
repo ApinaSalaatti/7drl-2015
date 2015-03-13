@@ -7,7 +7,9 @@ MapPopulator.prototype.populate = function(map, player) {
 	var pos = map.getRandomFloorPositionWithin(startRoom.x, startRoom.y, startRoom.w, startRoom.h);
 	player.setPosition(pos.x, pos.y);
 	map.addEntity(player);
-
+	
+	this.createToiletAndLine(map);
+	
 	for(var i = 0; i < 60; i++) {
 		this.createTable(map);
 	}
@@ -41,6 +43,22 @@ MapPopulator.prototype.populate = function(map, player) {
 		else
 			break;
 	}
+	
+	this.placeDiscoLights(map);
+}
+
+MapPopulator.prototype.placeDiscoLights = function(map) {
+	var db = [];
+	var rooms = map.getRooms();
+	for(var i = 0; i < rooms.length; i++) {
+		var cx = rooms[i].x + Math.floor(rooms[i].w/2);
+		var cy = rooms[i].y + Math.floor(rooms[i].h/2);
+		if(ROT.RNG.getUniform() < 2) {
+			db.push({ x: cx, y: cy });
+		}
+	}
+	
+	map.setDiscoBalls(db);
 }
 
 MapPopulator.prototype.createTable = function(map) {
@@ -130,4 +148,95 @@ MapPopulator.prototype.createDrunk = function(map) {
 			}
 		}
 	}
+}
+
+MapPopulator.prototype.createToiletAndLine = function(map) {
+	var room = map.getRooms()[map.getRooms().length-1];
+	
+	var sides = ['left', 'right', 'top', 'bottom'];
+	sides = sides.randomize();
+	var side = sides[0];
+	
+	var tx = 0;
+	var ty = 0;
+	
+	if(side == 'left') {
+		tx = room.x;
+		for(var i = 1; i < room.w; i++) { // y starts at 1 so we don't make a door in a corner
+			if(map.getTile(tx, room.y+i).getName() == 'wall' && map.getTile(tx, room.y+i-1).getName() == 'wall' && map.getTile(tx, room.y+i+1).getName() == 'wall') {
+				ty = room.y+i;
+				break;
+			}
+		}
+		map.setTile(tx, ty, Game.TileFactory.create('floor'));
+		map.setTile(tx-1, ty, Game.TileFactory.create('toilet'));
+		map.setTile(tx-2, ty, Game.TileFactory.create('wall'));
+		map.setTile(tx-2, ty-1, Game.TileFactory.create('wall'));
+		map.setTile(tx-2, ty+1, Game.TileFactory.create('wall'));
+		
+		for(var i = 0; i < 5; i++) {
+			this.placeQueuer(tx+i, ty, i, map);
+		}
+	}
+	else if(side == 'right') {
+		tx = room.x + room.w - 1;
+		for(var i = 1; i < room.w; i++) { // y starts at 1 so we don't make a door in a corner
+			if(map.getTile(tx, room.y+i).getName() == 'wall' && map.getTile(tx, room.y+i-1).getName() == 'wall' && map.getTile(tx, room.y+i+1).getName() == 'wall') {
+				ty = room.y+i;
+				break;
+			}
+		}
+		map.setTile(tx, ty, Game.TileFactory.create('floor'));
+		map.setTile(tx+1, ty, Game.TileFactory.create('toilet'));
+		map.setTile(tx+2, ty, Game.TileFactory.create('wall'));
+		map.setTile(tx+2, ty-1, Game.TileFactory.create('wall'));
+		map.setTile(tx+2, ty+1, Game.TileFactory.create('wall'));
+		
+		for(var i = 0; i < 5; i++) {
+			this.placeQueuer(tx-i, ty, i, map);
+		}
+	}
+	else if(side == 'top') {
+		ty = room.y;
+		for(var i = 1; i < room.h; i++) { // y starts at 1 so we don't make a door in a corner
+			if(map.getTile(room.x+i, ty).getName() == 'wall' && map.getTile(room.x+i-1, ty).getName() == 'wall' && map.getTile(room.x+i+1,  ty).getName() == 'wall') {
+				tx = room.x+i;
+				break;
+			}
+		}
+		map.setTile(tx, ty, Game.TileFactory.create('floor'));
+		map.setTile(tx, ty-1, Game.TileFactory.create('toilet'));
+		map.setTile(tx, ty-2, Game.TileFactory.create('wall'));
+		map.setTile(tx-1, ty-2, Game.TileFactory.create('wall'));
+		map.setTile(tx+1, ty-2, Game.TileFactory.create('wall'));
+		
+		for(var i = 0; i < 5; i++) {
+			this.placeQueuer(tx, ty+i, i, map);
+		}
+	}
+	else if(side == 'bottom') {
+		ty = room.y + room.h - 1;
+		for(var i = 1; i < room.h; i++) { // y starts at 1 so we don't make a door in a corner
+			if(map.getTile(room.x+i, ty).getName() == 'wall' && map.getTile(room.x+i-1, ty).getName() == 'wall' && map.getTile(room.x+i+1,  ty).getName() == 'wall') {
+				tx = room.x+i;
+				break;
+			}
+		}
+		map.setTile(tx, ty, Game.TileFactory.create('floor'));
+		map.setTile(tx, ty+1, Game.TileFactory.create('toilet'));
+		map.setTile(tx, ty+2, Game.TileFactory.create('wall'));
+		map.setTile(tx-1, ty+2, Game.TileFactory.create('wall'));
+		map.setTile(tx+1, ty+2, Game.TileFactory.create('wall'));
+		
+		for(var i = 0; i < 5; i++) {
+			this.placeQueuer(tx, ty-i, i, map);
+		}
+	}
+}
+
+MapPopulator.prototype.placeQueuer = function(x, y, placeInLine, map) {
+	var q = Game.EntityFactory.create('queuer');
+	q.setPosition(x, y);
+	q.setPlaceInLine(placeInLine);
+	map.addEntity(q);
 }

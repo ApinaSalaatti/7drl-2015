@@ -60,6 +60,10 @@ Game.Entity.prototype.tryMove = function(x, y) {
 		this.raiseEvent('onJumpOffTable');
 	}
 	
+	if(newTile.getName() == 'toilet' && this.hasComponent('PlayerActor')) {
+		Game.switchScreen(Game.Screens.victoryScreen);
+	}
+	
 	return true;
 }
 
@@ -100,6 +104,25 @@ Game.EntityFactory.defineTemplate(
 		components: [
 			Game.Components.Hands, Game.Components.Sight, Game.Components.DrunkActor, Game.Components.Human, Game.Components.Health, Game.Components.Attacker,
 			Game.Components.DrunkInteractable
+		]
+	},
+	{ isRandomlySpawnable: true }
+);
+
+Game.EntityFactory.defineTemplate(
+	'queuer',
+	{
+		name: 'Drunk',
+		character: 'D',
+		foreground: 'blue',
+		sightRadius: 15,
+		hitChance: 0.3,
+		health: 5,
+		attackPower: 3,
+		attackMessage: 'swings drunkenly at',
+		components: [
+			Game.Components.Hands, Game.Components.Sight, Game.Components.QueuerActor, Game.Components.Human, Game.Components.Health, Game.Components.Attacker,
+			Game.Components.QueuerInteractable
 		]
 	},
 	{ isRandomlySpawnable: true }
