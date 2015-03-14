@@ -184,6 +184,9 @@ Game.Components.QueuerActor = {
 			if(offsetX <= 1 && offsetY <= 1) {
 				// Next to the enemy! ATTACK!
 				this.attack(this._chasedEntity);
+				if(this._chasedEntity.getHealth() <= 0) {
+					Game.Screens.loseScreen.setup("The drunks beat you senseless. You should not mess with people who need to pee", Game.ImageUtilities.getStreetImage());
+				}
 				return;
 			}
 			
@@ -538,8 +541,6 @@ Game.Components.VitalStats = {
 			var f = data.funRatio;
 			this.funChange(f);
 			this.drunkChange(f*5);
-			console.log(this._drunk);
-			console.log(this._maxDrunk);
 		},
 		onAct: function() {
 			this.funChange(-1);
@@ -885,6 +886,9 @@ Game.Components.Container = {
 Game.Components.Peanuts = {
 	name: 'Peanuts',
 	groupName: 'Usable',
+	init: function(properties) {
+		this._portions = 15;
+	},
 	getUsingMessage: function() {
 		return "eats " + this.describeA();
 	},
@@ -892,15 +896,30 @@ Game.Components.Peanuts = {
 		Game.GameObject.prototype.getPeedOn.call(this);
 		this.setName("Pee-nuts");
 	},
-	describeA: function() {
-		return "some " + this.describe();
-	},
-	use: function(user) {
-		if(this.hasPeeOnIt()) {
-			user.raiseEvent('onDrink', { funRatio: -10, peeRatio: 0 });
+	describeA: function(capitalize) {
+		if(this._portions == 0) {
+			return "empty " + this.describe();
+		}
+		else if(this._portions == 1) {
+			return Game.GameObject.prototype.describeA.call(this, capitalize);
 		}
 		else {
-			user.raiseEvent('onDrink', { funRatio: 1, peeRatio: 0 });
+			return "some " + this.describe();
+		}
+	},
+	use: function(user) {
+		if(this._portions > 0) {
+			this._portions--;
+			if(this._portions == 1)
+				this.setName('peanut');
+			else if(this._portions == 0)
+				this.setName('nutsack');
+			if(this.hasPeeOnIt()) {
+				user.funChange(-10);
+			}
+			else {
+				user.funChange(1);
+			}
 		}
 	}
 }
