@@ -77,6 +77,7 @@ Game.Screens.startScreen = {
 		y += display.drawText(55, y, "Z and X use items in left and right hand");
 		y += display.drawText(55, y, "A and S drop items from left and right hand");
 		y += display.drawText(55, y, "SPACE makes you pee! You can pee everywhere!");
+		y += display.drawText(55, y, "I to show this info");
 		y += 1;
 		y += display.drawText(55, y, "- You can interact with people in the world by walking into them (you can also fight angry people the same way)");
 		y += display.drawText(55, y, "- The aim of the game is to find the toilet (a tile that's just a capital T)");
@@ -192,6 +193,10 @@ Game.Screens.playScreen = {
 					Game.addMessage(this._player.getName() + " drops " + item.describeA());
 					this._map.getTile(this._player.getX(), this._player.getY()).addItem(item);
 				}
+			}
+			else if(eventData.keyCode == ROT.VK_F1 || eventData.keyCode == ROT.VK_I) {
+				Game.Screens.playScreen.setSubscreen(Game.Screens.infoScreen);
+				endTurn = false;
 			}
 			else {
 				endTurn = false;
@@ -553,5 +558,37 @@ Game.Screens.victoryScreen = {
 		display.drawText(7, 11, col + "It signifies your journey is finally");
 		display.drawText(16, 13, col + "OVER");
 		display.drawText(50, 20, col + "THE END!");
+	}
+}
+
+Game.Screens.infoScreen = {
+	enter: function() {
+		
+	},
+	exit: function() {
+	
+	},
+	handleInput: function(eventName, eventData) {
+		if(eventName == 'keydown') {
+			if(eventData.keyCode == ROT.VK_F1 || eventData.keyCode == ROT.VK_I || eventData.keyCode == ROT.VK_ESCAPE) {
+				Game.Screens.playScreen.setSubscreen(null);
+			}
+		}
+	},
+	render: function(display) {
+		var y = 7;
+		y += display.drawText(55, y, "HOW TO PLAY:");
+		y += display.drawText(55, y, "Move with ARROWS or YUHJKLBN");
+		y += display.drawText(55, y, "- (Y, U, B and N move you diagonally)");
+		y += display.drawText(55, y, "P picks up an item from the square you are on");
+		y += display.drawText(55, y, "Z and X use items in left and right hand");
+		y += display.drawText(55, y, "A and S drop items from left and right hand");
+		y += display.drawText(55, y, "SPACE makes you pee! You can pee everywhere!");
+		y += display.drawText(55, y, "I to show this info");
+		y += 1;
+		y += display.drawText(55, y, "- You can interact with people in the world by walking into them (you can also fight angry people the same way)");
+		y += display.drawText(55, y, "- The aim of the game is to find the toilet (a tile that's just a capital T)");
+		y += display.drawText(55, y, "- You really need to go, so you might have to relieve yourself before you find a toilet. Don't let anyone see you pee, though! If you pee your pants your fun level will drop very low.");
+		y += display.drawText(55, y, "- You must not let your fun drop too low or you lose! Drink beer and eat peanuts to keep having a good time. You also lose if you get beaten up for whatever reason.");
 	}
 }
