@@ -6,6 +6,7 @@ var Game = {
 	_messages: [],
 	init: function() {
 		this._display = new ROT.Display({ width: this._screenWidth, height: this._screenHeight, fg: 'black', bg: 'white' });
+		this.createMusic();
 		var game = this;
 		window.addEventListener('keydown', function(e) {
 			if(e.keyCode == 8) e.preventDefault();
@@ -67,6 +68,20 @@ var Game = {
 		if(this._currentScreen != null) {
 			this._currentScreen.handleInput(eventName, eventData);
 		}
+	},
+	
+	createMusic: function() {
+		if(!Game.audio) {
+			Game.audio = new Audio("hhg.mp3");
+			Game.audio.loop = true;
+		}
+	},
+	startMusic: function() {
+		Game.audio.play();
+	},
+	stopMusic: function() {
+		if(Game.audio)
+			Game.audio.pause();
 	}
 }
 

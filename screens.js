@@ -10,6 +10,9 @@ Game.Screens.startScreen = {
 		this._selections = [];
 		this._selections[0] = { title: 'Change gender', select: Game.Screens.startScreen.changeGender };
 		this._selections[1] = { title: 'Start game', select: Game.Screens.startScreen.startGame };
+		
+		// STOP AUDIO
+		Game.stopMusic();
 	},
 	exit: function() {
 	
@@ -52,16 +55,33 @@ Game.Screens.startScreen = {
 		Game.refresh();
 	},
 	render: function(display) {
-		display.drawText(1, 1, "Type in your name: " + Game.playerName);
+		Game.DrawingUtilities.drawLogo(1, 1, display);
+		
+		display.drawText(1, 7, "Type in your name: ");
 		for(var i = 0; i < this._selections.length; i++) {
 			var bg = '';
 			if(this._currentSelection == i) bg = 'lightGrey';
-			display.drawText(1, 3+i, '%b{'+bg+'}' + this._selections[i].title);
+			display.drawText(1, 8+i, '%b{'+bg+'}' + this._selections[i].title);
 		}
 		
-		// Render info
-		display.drawText(70, 1, Game.playerName);
-		display.drawText(70, 2, Game.playerGender);
+		// Render player info
+		display.drawText(20, 7, Game.playerName);
+		display.drawText(20, 8, Game.playerGender);
+		
+		// Render instructions
+		var y = 7;
+		y += display.drawText(55, y, "HOW TO PLAY:");
+		y += display.drawText(55, y, "Move with ARROWS or YUHJKLBN");
+		y += display.drawText(55, y, "- (Y, U, B and N move you diagonally)");
+		y += display.drawText(55, y, "P picks up an item from the square you are on");
+		y += display.drawText(55, y, "Z and X use items in left and right hand");
+		y += display.drawText(55, y, "A and S drop items from left and right hand");
+		y += display.drawText(55, y, "SPACE makes you pee! You can pee everywhere!");
+		y += 1;
+		y += display.drawText(55, y, "- You can interact with people in the world by walking into them (you can also fight angry people the same way)");
+		y += display.drawText(55, y, "- The aim of the game is to find the toilet (a tile that's just a capital T)");
+		y += display.drawText(55, y, "- You really need to go, so you might have to relieve yourself before you find a toilet. Don't let anyone see you pee, though! If you pee your pants your fun level will drop very low.");
+		y += display.drawText(55, y, "- You must not let your fun drop too low or you lose! Drink beer and eat peanuts to keep having a good time. You also lose if you get beaten up for whatever reason.");
 	}
 };
 
@@ -87,6 +107,8 @@ Game.Screens.playScreen = {
 		
 		Game.clearMessages();
 		Game.addMessage("You really, really gotta go");
+		
+		Game.startMusic();
 	},
 	exit: function() {
 	
@@ -170,6 +192,9 @@ Game.Screens.playScreen = {
 					Game.addMessage(this._player.getName() + " drops " + item.describeA());
 					this._map.getTile(this._player.getX(), this._player.getY()).addItem(item);
 				}
+			}
+			else {
+				endTurn = false;
 			}
 			
 			if(endTurn) this._map.endPlayerTurn();

@@ -27,6 +27,10 @@ MapPopulator.prototype.populate = function(map, player) {
 		this.createGuard(map);
 	}
 	
+	for(var i = 0; i < 3; i++) {
+		this.createSlotMachine(map);
+	}
+	
 	for(var i = 0; i < 50; i++) {
 		var it = Game.ItemFactory.createRandom();
 		var pos = map.getRandomTile('table');
@@ -45,6 +49,20 @@ MapPopulator.prototype.populate = function(map, player) {
 	}
 	
 	this.placeDiscoLights(map);
+}
+
+MapPopulator.prototype.createSlotMachine = function(map) {
+	var rooms = map.getRooms();
+	var r = Math.floor(ROT.RNG.getUniform() * (rooms.length-1));
+	
+	var room = rooms[r];
+	
+	var pos = map.getRandomFloorPositionWithin(room.x+2, room.y+2, room.w-4, room.h-4); // Avoid edges to not block corridors
+	if(pos) {
+		var sm = Game.EntityFactory.create('slotMachine');
+		sm.setPosition(pos);
+		map.addEntity(sm);
+	}
 }
 
 MapPopulator.prototype.placeDiscoLights = function(map) {
@@ -107,7 +125,7 @@ MapPopulator.prototype.createBar = function(map) {
 	var rooms = map.getRooms();
 	var k = Object.keys(rooms).random();
 	var r = rooms[k];
-	var pos = map.getRandomFloorPositionWithin(r.x+2, r.y+3, r.w-2, r.h-2); // Not on the edges (i.e. walls and corridors)
+	var pos = map.getRandomFloorPositionWithin(r.x+2, r.y+3, r.w-4, r.h-6); // Not on the edges (i.e. walls and corridors)
 	var cx = r.x + Math.floor(r.w/2);
 	var cy = r.y + Math.floor(r.h/2);
 	

@@ -154,3 +154,14 @@ Game.EntityFactory.defineTemplate(
 	},
 	{ isRandomlySpawnable: true }
 );
+
+Game.EntityFactory.defineTemplate(
+	'slotMachine',
+	{
+		name: 'Slot Machine',
+		character: 'S',
+		foreground: 'darkGrey',
+		components: []
+	},
+	{ isRandomlySpawnable: true }
+);

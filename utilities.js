@@ -22,6 +22,40 @@ Game.DrawingUtilities = {
 	
 	drawRandomImage: function(startX, startY, display) {
 		this.drawImage(startX, startY, display, Game.ImageUtilities.getRandomImage());
+	},
+	
+	drawLogo: function(x, y, display) {
+		var logo = [
+			"II   IIIIIII IIIIIIII IIIIIIII IIIIIIII IIIIIIII   IIIIIII IIIIIIII",
+			"II   II      II    II    II       II    II    II   II      II    II",
+			"II   II  III II    II    II       II    IIIIIIII   II  III II    II",
+			"II   II   II II    II    II       II    II    II   II   II II    II",
+			"II   IIIIIII IIIIIIII    II       II    II    II   IIIIIII IIIIIIII"
+		];
+		
+		if(!this.counter)
+			this.counter = 1;
+		else
+			this.counter++;
+		
+		var r = Math.floor((0.5 + Math.sin(this.counter / 2) / 2) * 255);
+		var g = 255 - Math.floor((0.5 + Math.sin(this.counter / 2) / 2) * 255);
+		var b = 50;
+		
+		for(var i = 0; i < logo.length; i++) {
+			var s = logo[i];
+			for(var j = 0; j < s.length; j++) {
+				var c = s.charAt(j);
+				if(c == 'I') {
+					var col = [ r, g, b ];
+					col = ROT.Color.toRGB(col);
+					display.draw(x+j, y+i, c, col, col);
+				}
+				else {
+					display.draw(x+j, y+i, c);
+				}
+			}
+		}
 	}
 };
 
