@@ -27,9 +27,10 @@ MapPopulator.prototype.populate = function(map, player) {
 		this.createGuard(map);
 	}
 	
+	/*
 	for(var i = 0; i < 3; i++) {
 		this.createSlotMachine(map);
-	}
+	}*/
 	
 	for(var i = 0; i < 50; i++) {
 		var it = Game.ItemFactory.createRandom();
